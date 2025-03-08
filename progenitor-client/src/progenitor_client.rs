@@ -69,7 +69,8 @@ impl<T: DeserializeOwned> ResponseValue<T> {
         let status = response.status();
         let headers = response.headers().clone();
         let full = response.bytes().await.map_err(Error::ResponseBodyError)?;
-        let inner = serde_json::from_slice(&full)
+        let de = &mut serde_json::Deserializer::from_slice(&full);
+        let inner = serde_path_to_error::deserialize(de)
             .map_err(|e| Error::InvalidResponsePayload(full, e))?;
 
         Ok(Self {
@@ -250,7 +251,10 @@ pub enum Error<E = ()> {
     ResponseBodyError(reqwest::Error),
 
     /// An expected response code whose deserialization failed.
-    InvalidResponsePayload(Bytes, serde_json::Error),
+    InvalidResponsePayload(
+        Bytes,
+        serde_path_to_error::Error<serde_json::Error>,
+    ),
 
     /// A response not listed in the API description. This may represent a
     /// success or failure response; check `status().is_success()`.
